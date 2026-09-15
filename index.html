@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f4b844">
+<title>Deeg Calculator</title>
+<style>
+:root{--bg:#f6f2e9;--card:#fff;--ink:#211c16;--muted:#746b60;--accent:#f4b844;--line:#e7ddd0;--ok:#2f6d55;--bad:#a23c2b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+main{max-width:680px;margin:auto;padding:18px 14px 42px}
+h1{font-size:30px;margin:6px 0 2px}.sub{margin:0 0 16px;color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 3px 14px rgba(0,0,0,.04)}
+label{display:block;font-weight:700;margin:0 0 7px}
+input,select,button{font:inherit}
+input,select{width:100%;font-size:18px;padding:13px;border:1px solid #d8ccbd;border-radius:12px;background:white;color:var(--ink)}
+.buttons{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.buttons button{padding:12px 8px;border-radius:12px;border:1px solid #d8ccbd;background:#fff;font-weight:700;font-size:17px;color:var(--ink)}
+.buttons button.on{background:var(--accent);border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.small{font-size:13px;color:var(--muted);line-height:1.4;margin-top:5px}
+.check{display:flex;gap:10px;align-items:center;margin-top:14px;font-weight:650}.check input{width:auto;transform:scale(1.25)}
+.row{display:flex;justify-content:space-between;gap:16px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:18px}
+.row strong{white-space:nowrap}.total{display:flex;justify-content:space-between;padding-top:13px;margin-top:8px;border-top:2px solid var(--ink);font-weight:800;font-size:20px}
+.note,.warn{padding:11px 12px;border-radius:12px;margin-top:12px;font-size:14px;line-height:1.4}
+.note{background:#eff7f3;color:var(--ok)}.warn{background:#fff0ec;color:var(--bad);display:none}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>🥐 Deeg Calculator</h1>
+<p class="sub">Basisdeeg met restkaaskorst</p>
+
+<section class="card">
+<label>Aantal basisrecepten</label>
+<div class="buttons">
+<button id="oneBtn" type="button">1×</button>
+<button id="twoBtn" class="on" type="button">2×</button>
+<button id="customBtn" type="button">Anders</button>
+</div>
+<div id="customBox" style="display:none;margin-top:10px">
+<input id="batchCount" type="number" min="0.1" step="0.1" value="2">
+</div>
+</section>
+
+<section class="card">
+<div class="grid">
+<div>
+<label for="restKg">Restkaaskorst</label>
+<input id="restKg" type="number" min="0" step="0.1" value="8.3">
+<div class="small">kilogram</div>
+</div>
+<div>
+<label for="yeastType">Gist</label>
+<select id="yeastType">
+<option value="fresh">Verse gist</option>
+<option value="otentic">O-tentic Durum 4%</option>
+</select>
+</div>
+</div>
+<label class="check"><input id="ignoreOld" type="checkbox" checked> Oude gist uit restdeeg niet meetellen</label>
+<div class="small">Handig wanneer het restdeeg al één of meerdere dagen oud is.</div>
+</section>
+
+<section class="card">
+<label>Recept — nieuw toe te voegen</label>
+<div id="output"></div>
+<div class="total"><span>Totaal deeg</span><span id="grandTotal">–</span></div>
+<div id="warning" class="warn"></div>
+<div id="note" class="note"></div>
+</section>
+
+<section class="card small">
+<strong>Vast basisrecept:</strong> 8000 g patent · 4000 g boter · 200 g zout · 1600 g kaas · 4000 g water · 1200 g verse gist.<br><br>
+<strong>Restkaaskorst:</strong> berekend uit 4700 g basisdeeg + 2700 g kaasdeeg.
+</section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  const el = id => document.getElementById(id);
+  const oneBtn = el("oneBtn"), twoBtn = el("twoBtn"), customBtn = el("customBtn");
+  const customBox = el("customBox"), batchCount = el("batchCount");
+  const restKg = el("restKg"), yeastType = el("yeastType"), ignoreOld = el("ignoreOld");
+  const output = el("output"), grandTotal = el("grandTotal"), warning = el("warning"), note = el("note");
+
+  const base = {patent:8000,boter:4000,zout:200,kaas:1600,water:4000,gist:1200};
+  const baseTotal = 19000;
+  const cheese = {kaas:8000,boter:800,zout:200,peper:60,water:1200,zetmeel:640};
+  const cheeseTotal = 10900;
+
+  const restComp = {};
+  Object.entries(base).forEach(([k,v]) => {
+    restComp[k] = (restComp[k] || 0) + (4700/7400) * (v/baseTotal);
+  });
+  Object.entries(cheese).forEach(([k,v]) => {
+    restComp[k] = (restComp[k] || 0) + (2700/7400) * (v/cheeseTotal);
+  });
+
+  function grams(v){ return Math.round(v).toLocaleString("nl-NL") + " g"; }
+
+  function choose(n){
+    batchCount.value = n;
+    customBox.style.display = "none";
+    oneBtn.classList.toggle("on", n===1);
+    twoBtn.classList.toggle("on", n===2);
+    customBtn.classList.remove("on");
+    calculate();
+  }
+
+  function custom(){
+    customBox.style.display = "block";
+    oneBtn.classList.remove("on");
+    twoBtn.classList.remove("on");
+    customBtn.classList.add("on");
+    batchCount.focus();
+    calculate();
+  }
+
+  function calculate(){
+    const n = Math.max(0, parseFloat(batchCount.value) || 0);
+    const rest = Math.max(0, parseFloat(restKg.value) || 0) * 1000;
+    const type = yeastType.value;
+    const ignore = ignoreOld.checked;
+
+    const add = {};
+    ["patent","boter","zout","kaas","water"].forEach(k => {
+      add[k] = base[k]*n - (restComp[k] || 0)*rest;
+    });
+
+    if(type === "fresh"){
+      add.gist = base.gist*n - (ignore ? 0 : (restComp.gist || 0)*rest);
+    } else {
+      add.otentic = 0.04 * base.patent * n;
+    }
+
+    const rows = [
+      ["Restkaaskorst", rest],
+      ["Patent", add.patent],
+      ["Boter", add.boter],
+      ["Zout", add.zout],
+      ["Kaas", add.kaas],
+      ["Water", add.water],
+      type === "fresh" ? ["Verse gist", add.gist] : ["O-tentic Durum", add.otentic]
+    ];
+
+    output.innerHTML = rows.map(([name,val]) =>
+      '<div class="row"><span>'+name+'</span><strong>'+grams(Math.max(0,val))+'</strong></div>'
+    ).join("");
+
+    grandTotal.textContent = grams(rows.reduce((s,r)=>s+Math.max(0,r[1]),0));
+
+    const neg = ["patent","boter","zout","kaas","water"].filter(k => add[k] < 0);
+    if(neg.length){
+      warning.style.display = "block";
+      warning.textContent = "Let op: voor dit aantal basisrecepten zit er te veel restkaaskorst in. Kies meer basisrecepten of minder restdeeg.";
+    }else{
+      warning.style.display = "none";
+      warning.textContent = "";
+    }
+
+    if(type === "fresh"){
+      note.textContent = ignore
+        ? "Verse gist wordt volledig vers toegevoegd; de oude gist in het restdeeg telt niet mee."
+        : "De nog aanwezige gist in het restdeeg wordt meegerekend.";
+    }else{
+      note.textContent = "O-tentic wordt berekend op 4% van de doelhoeveelheid patentbloem.";
+    }
+  }
+
+  oneBtn.addEventListener("click",()=>choose(1));
+  twoBtn.addEventListener("click",()=>choose(2));
+  customBtn.addEventListener("click",custom);
+  batchCount.addEventListener("input",calculate);
+  restKg.addEventListener("input",calculate);
+  yeastType.addEventListener("change",calculate);
+  ignoreOld.addEventListener("change",calculate);
+
+  calculate();
+})();
+</script>
+</body>
+</html>
